@@ -1,0 +1,266 @@
+#VRML_SIM R2025a utf8
+
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackground.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/backgrounds/protos/TexturedBackgroundLight.proto"
+EXTERNPROTO "https://raw.githubusercontent.com/cyberbotics/webots/R2025a/projects/objects/floors/protos/RectangleArena.proto"
+
+WorldInfo {
+}
+Viewpoint {
+  orientation -0.03851310580569803 0.009136839529162782 0.9992163223469768 2.6761512526653246
+  position 8.974599922483984 -3.074147921386382 2.274885582787816
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  floorSize 3 3
+}
+Robot {
+  translation -1 1 0.05
+  children [
+    HingeJoint {
+      jointParameters HingeJointParameters {
+        axis 0 0 1
+      }
+      device [
+        RotationalMotor {
+          name "servo_basis"
+          maxVelocity 20
+        }
+      ]
+      endPoint Solid {
+        translation 0 0 0.1
+        children [
+          HingeJoint {
+            jointParameters HingeJointParameters {
+              axis 0 0 1
+            }
+            device [
+              RotationalMotor {
+                name "servo_horizontal"
+                consumptionFactor 20
+              }
+            ]
+            endPoint Solid {
+              translation 0 0 0.1
+              children [
+                HingeJoint {
+                  jointParameters HingeJointParameters {
+                    axis 0 -1 0
+                  }
+                  device [
+                    RotationalMotor {
+                      name "servo_vertikal"
+                      maxVelocity 20
+                    }
+                  ]
+                  endPoint Solid {
+                    translation 0.025 0 0.1
+                    rotation 0 -1 0 0
+                    children [
+                      DEF ultraschall_sensor DistanceSensor {
+                        name "ultraschall_sensor"
+                        lookupTable [
+                          0 0 0
+                          10 10 0
+                        ]
+                        aperture 0.1578
+                      }
+                      Shape {
+                        appearance Appearance {
+                          material Material {
+                            diffuseColor 0.5 0.5 0.5
+                          }
+                        }
+                        geometry Box {
+                          size 0.2 0.1 0.1
+                        }
+                      }
+                    ]
+                    name "solid_ultraschall_sensor"
+                    boundingObject Box {
+                      size 0.2 0.1 0.1
+                    }
+                  }
+                }
+                Shape {
+                  appearance Appearance {
+                    material Material {
+                      diffuseColor 0.3 0.3 0.3
+                    }
+                  }
+                  geometry Box {
+                    size 0.2 0.2 0.1
+                  }
+                }
+              ]
+              name "solid_horizontal"
+              boundingObject Box {
+                size 0.2 0.2 0.1
+              }
+            }
+          }
+          Shape {
+            appearance Appearance {
+              material Material {
+                diffuseColor 0.2 0.2 0.2
+              }
+            }
+            geometry Box {
+              size 0.4 0.4 0.1
+            }
+          }
+        ]
+        name "solid_basis"
+        boundingObject Box {
+          size 0.4 0.4 0.1
+        }
+      }
+    }
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0.1 0.1 0.1
+        }
+      }
+      geometry Box {
+        size 0.5 0.5 0.1
+      }
+    }
+  ]
+  name "Sonar"
+  boundingObject Box {
+    size 0.5 0.5 0.1
+  }
+  controller "Informatik_SonarV5"
+  supervisor TRUE
+}
+DEF test_ziel1 Solid {
+  translation -4.8 3.9 2.6
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 0
+        }
+      }
+      geometry Box {
+        size 0.25 0.25 0.25
+      }
+    }
+  ]
+  name "test_ziel1"
+  boundingObject Shape {
+    geometry Box {
+      size 0.25 0.25 0.25
+    }
+  }
+}
+DEF test_ziel2 Solid {
+  translation -3.2 2.9 4
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 0
+        }
+      }
+      geometry Box {
+        size 0.25 0.25 0.25
+      }
+    }
+  ]
+  name "test_ziel2"
+  boundingObject Shape {
+    geometry Box {
+      size 0.25 0.25 0.25
+    }
+  }
+}
+DEF test_ziel3 Solid {
+  translation 3.5 1.5 3
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 0
+        }
+      }
+      geometry Box {
+        size 0.25 0.25 0.25
+      }
+    }
+  ]
+  name "test_ziel3"
+  boundingObject Shape {
+    geometry Box {
+      size 0.25 0.25 0.25
+    }
+  }
+}
+Solid {
+  translation 1.45 0 0.05
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0 0 0
+        }
+      }
+      geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "Norden"
+}
+Solid {
+  translation -1.45 0 0.05
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 0 0
+        }
+      }
+      geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "Süden"
+}
+Solid {
+  translation 0 1.45 0.05
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 0 1 0
+        }
+      }
+      geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "Osten"
+}
+Solid {
+  translation 0 -1.45 0.05
+  children [
+    Shape {
+      appearance Appearance {
+        material Material {
+          diffuseColor 1 1 1
+        }
+      }
+      geometry Box {
+        size 0.1 0.1 0.1
+      }
+    }
+  ]
+  name "Westen"
+}
