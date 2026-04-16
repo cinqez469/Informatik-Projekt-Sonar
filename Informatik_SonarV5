@@ -1,0 +1,255 @@
+from controller import Supervisor
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import math
+# Importieren wichtiger Bibliotheken und Initialisierung Roboter als
+# Supervisor, dass Eigenschaften (Verschiebung) abgerufen werden koennen
+
+robot = Supervisor()
+timestep = int(robot.getBasicTimeStep()) # Simulation berechnet Zeitschritte für Roboter
+self_node = robot.getSelf()
+trans_field = self_node.getField("translation")
+u_s_node = robot.getFromDef("ultraschall_sensor")
+# Abrufen der Roboter-Eigenschaften
+
+test_ziel1_node = robot.getFromDef("test_ziel1")
+tz1_trans = test_ziel1_node.getField("translation")
+test_ziel2_node = robot.getFromDef("test_ziel2")
+tz2_trans = test_ziel2_node.getField("translation")
+test_ziel3_node = robot.getFromDef("test_ziel3")
+tz3_trans = test_ziel3_node.getField("translation")
+# Ermöglicht Abrufen Position Testziele und spätere ändern
+
+s_b = robot.getDevice("servo_basis")
+s_h = robot.getDevice("servo_horizontal")
+s_v = robot.getDevice("servo_vertikal")
+u_s = robot.getDevice("ultraschall_sensor")
+u_s.enable(timestep)
+# legt Variabeln zum Ansteuern Servo/Ultraschall-Sensor fest
+# Simulation berechnet Zeitschritte für Ultraschall-Sensor
+
+sc_d = 2
+sc_r = ((135 - 90) / 360) * math.pi * 2
+sc_h = 25
+w_h_max = math.pi
+sc_v = 15
+w_v_max = math.pi / 2
+# Festlegung Scan-Parameter 
+
+def wait(ms):
+    start_time = robot.getTime()
+    while robot.getTime() < start_time + (ms / 1000.0):
+        t = robot.getTime()
+        x_new = math.sin(t * 2.0) * 1.0
+        tz1_trans.setSFVec3f([x_new - 4.8, 3.9, 2.6])
+        y_new = math.sin(t * 1.5) * 2.0
+        tz2_trans.setSFVec3f([-3.2, y_new + 2.9, 4])
+        z_new = math.sin(t * 0.5) *1.5
+        tz3_trans.setSFVec3f([3.5, 1.5, z_new + 3])
+        if robot.step(timestep) == -1:
+            break
+# Eigene Funktion dass Roboter wartet anstatt Pause Simulation
+# Gleichzeitige Aenderung Positionen Testziele
+
+def robot_position():
+    if self_node:
+        return trans_field.getSFVec3f()
+    return [0, 0, 0]
+# Abfrage + Speicherung Positionen Sonar
+
+def sensor_daten():
+    if u_s_node:
+        scan_cone = u_s_node.getField("aperture").getSFFloat()
+        lut_field = u_s_node.getField("lookupTable")
+        scan_distance = lut_field.getMFVec3f(1)[0]
+        print(f"Sensor-Daten: Scan-Reichweite: {scan_distance}m; Groeße Scan-Winkel: {math.degrees(scan_cone)}")
+        return scan_cone, scan_distance
+        wait(1000)
+# Abfrage + Speicherung + Ausgabe Ultraschall-Sensor-Daten
+
+def check_scan_abdeckung(scan_cone, sc_h, sc_v, w_h_max, w_v_max):
+    step_h_size = w_h_max / (sc_h - 1)
+    step_v_size = w_v_max / (sc_v - 1)
+    if scan_cone < step_h_size:
+        print(f"Achtung! Durch Groeße des Scan-Winkels und horizontale Schritt-Groeße entstehen Luecken!"
+              f"Anzahl der horizontalen Scans wird auf {math.ceil(w_h_max / scan_cone)}, damit die Luecken geschlossen werden.")
+        sc_h = math.ceil(w_h_max / scan_cone)
+    else:
+        print(f"Keine Luecken in horizontaler Richtung!")
+    if scan_cone < step_v_size:
+         print(f"Achtung! Durch Groeße des Scan-Winkels und vertikale Schritt-Groeße entstehen Luecken!"
+              f"Anzahl der vertikalen Scans wird auf {math.ceil(w_v_max / scan_cone)}, damit die Luecken geschlossen werden.")
+         sc_h = math.ceil(w_v_max / scan_cone)
+    else:
+        print(f"Keine Luecken in vertikaler Richtung!")
+    return sc_h, sc_v
+    wait(1000)
+# Prüft ob durch Schrittweite/Kegelweite Ultraschall-Sensor Luecken im Scan entstehen
+# Automatische Anpassung zur Schließung Luecken
+
+def leerfahrten_vermeiden(sc_h, sc_v):
+    if sc_h % 2 != 0:
+        print(f"Hinweis: horizontale Scan-Anzahl ist ({sc_h}) ungerade."
+              f" Erhöhe auf {sc_h + 1}, um Leerfahrten zu vermeiden.")
+        sc_h += 1
+    if sc_v % 2 != 0:
+        print(f"Hinweis: vertikale Scan-Anzahl ist ({sc_v}) ungerade."
+              f" Erhöhe auf {sc_v + 1}, um Leerfahrten zu vermeiden.")
+        sc_v += 1
+    wait(1000)
+# Prüft ob Leerfahrten durch ungerade Anzahl Anzahl Scans horizontal/vertikal
+# Automatische Erhoehung um 1
+
+def setup():
+    s_b.setPosition(sc_r)
+    s_h.setPosition(0)
+    s_v.setPosition(0)
+    wait(1000)
+# Faehrt alle Servos auf jeweilige Startpositionen
+
+def velocity(target_v, target_total_h, pos_base):
+    d1 = u_s.getValue()
+    t1 = robot.getTime()
+    wait(50)
+    d2 = u_s.getValue()
+    t2 = robot.getTime()
+    dt = t2 - t1
+    vx, vy, vz, v_total = None, None, None, 0
+    x2, y2, z2 = None, None, None
+    if d1 < (scan_distance * 0.99) and d2 < (scan_distance * 0.99):
+        cos_v = math.cos(target_v)
+        cos_h = math.cos(target_total_h)
+        sin_h = math.sin(target_total_h)
+        sin_v = math.sin(target_v)
+        x1 = cos_v * cos_h * d1 + pos_base[0]
+        y1 = cos_v * sin_h * d1 + pos_base[1]
+        z1 = sin_v * d1 + pos_base[2]
+        x2 = cos_v * cos_h * d2 + pos_base[0]
+        y2 = cos_v * sin_h * d2 + pos_base[1]
+        z2 = sin_v * d2 + pos_base[2]
+        vx = (x2 - x1) / dt
+        vy = (y2 - y1) / dt
+        vz = (z2 - z1) / dt
+        v_total = math.sqrt(vx**2 + vy**2 + vz**2)
+    return x2, y2, z2, v_total, d2
+# Scan und Verarbeitung gemessene Daten
+# Speicherung und Weitergabe verarbeitete Daten
+
+def run_sonar_up(pos_base):
+    x_scan = []
+    y_scan = []
+    z_scan = []
+    v_scan = []
+    w_h_step = w_h_max / (sc_h - 1)
+    w_v_step = w_v_max / (sc_v - 1)
+    for v in range(sc_v):
+        target_v = v * w_v_step
+        s_v.setPosition(target_v)
+        wait(100)       
+        if v % 2 == 0:
+            range_h = range(sc_h)
+        else:
+            range_h = range(sc_h - 1, -1, -1)     
+        for h in range_h:
+            target_h = h * w_h_step
+            s_h.setPosition(target_h)
+            wait(100)
+            target_total_h = target_h + sc_r
+            xw, yw, zw, v_total, dist = velocity(target_v, target_total_h, pos_base)
+            if xw is not None:
+                x_scan.append(xw)
+                y_scan.append(yw)
+                z_scan.append(zw)
+                v_scan.append(v_total)
+            if v_total > 5.0:
+                v_total = 0.0  
+    return x_scan, y_scan, z_scan, v_scan
+# Hochfahren des Sonars sowie Scan
+# anschließende Speicherung verarbeiteten Daten
+
+def run_sonar_down(pos_base):
+    x_scan = []
+    y_scan = []
+    z_scan = []
+    v_scan = []
+    w_h_step = w_h_max / (sc_h - 1)
+    w_v_step = w_v_max / (sc_v - 1)
+    for v in range(sc_v - 1, -1, -1):
+        target_v = v * w_v_step
+        s_v.setPosition(target_v)
+        wait(100)
+        if v % 2 == 0:
+            range_h = range(sc_h)
+        else:
+            range_h = range(sc_h - 1, -1, -1) 
+        for h in range_h:
+            target_h = h * w_h_step
+            s_h.setPosition(target_h)
+            wait(100)
+            target_total_h = target_h + sc_r
+            xw, yw, zw, v_total, dist = velocity(target_v, target_total_h, pos_base)
+            if xw is not None:  
+                x_scan.append(xw)
+                y_scan.append(yw)
+                z_scan.append(zw)
+                v_scan.append(v_total)
+            if v_total > 5.0:
+                v_total = 0.0
+    return x_scan, y_scan, z_scan, v_scan
+# Herunterfahren des Sonars sowie Scan
+# Anschließende Speicherung verarbeitete Daten
+
+def plot_data(xs, ys, zs, cs):
+    if len(xs) == 0:
+        print("Hinweis: Keine Objekte im Scanbereich gefunden, Plot wird nicht erstellt.")
+        return
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(111, projection='3d')
+    img = ax.scatter(xs, ys, zs, c=cs, cmap='jet', s=10)
+    cbar = fig.colorbar(img, ax=ax, pad=0.1)
+    cbar.set_label('Durchschnittliche Geschwindigkeit [m/s]')
+    ax.set_xlabel('X (Breite)')
+    ax.set_ylabel('Y (Tiefe)')
+    ax.set_zlabel('Z (Höhe)')
+    ax.set_xlim(-10, 10)
+    ax.set_ylim(-10, 10)
+    ax.set_zlim(0, 10)
+    plt.title(f"Sonar Scan - {sc_d} Durchgänge")
+    plt.show()
+# Darstellung der verarbeiteten Daten in 3D-Plot
+
+def master(anzahl_durchgaenge):
+    all_x = []
+    all_y = []
+    all_z = []
+    all_c = []
+    for i in range(anzahl_durchgaenge):
+        pos_base = robot_position()
+        print(f"Durchgang {i + 1}: Hochfahren")    
+        xs_up, ys_up, zs_up, vs_up = run_sonar_up(pos_base)
+        all_x.extend(xs_up)
+        all_y.extend(ys_up)
+        all_z.extend(zs_up)
+        all_c.extend(vs_up)
+        print(f"Durchgang {i + 1}: Runterfahren")
+        wait(250)
+        xs_down, ys_down, zs_down, vs_down = run_sonar_down(pos_base)
+        all_x.extend(xs_down)
+        all_y.extend(ys_down)
+        all_z.extend(zs_down)
+        all_c.extend(vs_down)
+    anzahl_punkte = len(all_x)
+    print(f"---Scan beendet---")
+    print(f"Punkte gesammelt: {anzahl_punkte}")
+    print(f"Max. Geschwindigkeit gemessen: {max(all_c) if all_c else 0:.2f} m/s")
+    return all_x, all_y, all_z, all_c
+# Vereinigung Sonar Hoch-/Herunterfahren
+# Speicherung/Weitergabe verarbeitete Daten
+
+scan_cone, scan_distance = sensor_daten()
+sc_h, sc_v = check_scan_abdeckung(scan_cone, sc_h, sc_v, w_h_max, w_v_max)
+leerfahrten_vermeiden(sc_h, sc_v)
+setup()
+final_x, final_y, final_z, final_c = master(sc_d)
+plot_data(final_x, final_y, final_z, final_c)
+# Eigentliche Ausfuehrung aller Funktionen
